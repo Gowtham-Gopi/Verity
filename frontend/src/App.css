@@ -1,0 +1,37 @@
+/* App.css — Component-level styles that complement index.css */
+
+/* Ensure App fills viewport */
+.app-shell {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-canvas);
+}
+
+/* Chart area padding tweak */
+.recharts-surface { overflow: visible; }
+
+/* Custom recharts axis styles */
+.recharts-yAxis .recharts-text,
+.recharts-xAxis .recharts-text {
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+  fill: var(--text-muted) !important;
+}
+
+/* Prevent default Vite styles from leaking */
+a { color: var(--cyan); text-decoration: none; }
+a:hover { color: var(--cyan-bright); }
+
+button { font-family: var(--font-sans); }
+
+/* Fix Recharts tooltip */
+.recharts-tooltip-wrapper { z-index: 1000; }
+
+/* Pulse animation for dots */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.7); }
+}
