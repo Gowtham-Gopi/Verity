@@ -110,14 +110,14 @@ export default function TopBar() {
       </div>
 
       {/* Ticker tape */}
-      <div className="ticker-tape-wrap">
-        <div className="ticker-tape" style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
+      <div className="ticker-tape-wrap" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div className="ticker-tape">
           {doubled.map((item, i) => <TickerItem key={i} item={item} />)}
         </div>
       </div>
 
       {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0, marginLeft: 'auto' }}>
         {/* Net Liq */}
         <div style={{ textAlign: 'right', lineHeight: 1.25 }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Net Liq</div>
