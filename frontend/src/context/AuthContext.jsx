@@ -60,10 +60,21 @@ export function AuthProvider({ children }) {
           }
         });
 
-        if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
           setUser(data.user);
           setToken(storedToken);
+        } else if (res.ok) {
+          // Response is ok but not JSON; fallback to decoded token
+          setUser({
+            id: decoded.sub,
+            name: decoded.name,
+            email: decoded.email,
+            role: decoded.role,
+            desk: decoded.desk,
+            clearance: decoded.clearance
+          });
         } else {
           // Token rejected by server
           localStorage.removeItem(TOKEN_KEY);
@@ -96,7 +107,15 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ email, password })
     });
 
-    const data = await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    let data;
+    if (contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error(`Authentication service returned invalid response (${res.status}). Ensure API route is deployed.`);
+    }
+
     if (!res.ok) {
       throw new Error(data.error || 'Authentication rejected by security enclave.');
     }
@@ -115,7 +134,15 @@ export function AuthProvider({ children }) {
       body: JSON.stringify(userData)
     });
 
-    const data = await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    let data;
+    if (contentType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error(`Registration service returned invalid response (${res.status}). Ensure API route is deployed.`);
+    }
+
     if (!res.ok) {
       throw new Error(data.error || 'Registration failed.');
     }
