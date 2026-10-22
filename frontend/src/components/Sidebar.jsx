@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, LineChart, Cpu, Globe,
+  Search, LayoutDashboard, LineChart, Cpu, Globe,
   ChevronLeft, ChevronRight, Radio, Zap, User, LogIn
 } from 'lucide-react';
 import { useVerity } from '../context/VerityContext';
@@ -8,12 +8,12 @@ import { WATCHLIST } from '../data/marketData';
 
 const NAV_ITEMS = [
   {
-    id: 'landing',
-    label: 'Overview & Portal',
-    shortLabel: 'Portal',
-    icon: Zap,
-    badge: 'PORTAL',
-    shortcut: '0',
+    id: 'search',
+    label: 'Asset Search',
+    shortLabel: 'Search',
+    icon: Search,
+    badge: '12K+',
+    shortcut: 'S',
   },
   {
     id: 'dashboard',

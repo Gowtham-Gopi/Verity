@@ -192,7 +192,17 @@ export default function Macro() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', animation: 'fadeIn 0.25s ease' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      height: '100%',
+      padding: '8px 10px',
+      boxSizing: 'border-box',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      animation: 'fadeIn 0.25s ease'
+    }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>

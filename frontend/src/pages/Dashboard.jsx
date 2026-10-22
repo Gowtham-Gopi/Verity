@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Zap, Activity, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Zap, Activity, TrendingUp, ArrowUpRight, ArrowDownRight, Globe, RefreshCw } from 'lucide-react';
 import { WATCHLIST, CATALYST_FEED } from '../data/marketData';
 import { useVerity } from '../context/VerityContext';
+import { fetchExchangeStocks } from '../services/exchangeApi';
 
 /* ── Sentiment Gauge ────────────────────────────── */
 function SentimentGauge({ value = 68 }) {
@@ -204,7 +205,7 @@ function WLRow({ item, active, onSelect, onDrillIn }) {
       {/* Price & Change */}
       <div style={{ textAlign: 'right', paddingRight: '8px' }}>
         <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-          ${item.price.toFixed(2)}
+          {item.currencySymbol || '$'}{item.price.toFixed(2)}
         </div>
         <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: up ? 'var(--green-bright)' : 'var(--red-bright)', fontWeight: 600 }}>
           {up ? '+' : ''}{item.changePct.toFixed(2)}%
@@ -337,37 +338,70 @@ const CARDS = [
   { isGauge: true },
 ];
 
-const WL_TABS = ['All Watchlist', 'Top Gainers', 'Unusual Volume', 'High News Impact'];
+const WL_TABS = ['All Watchlist', 'Exchange (All Stocks)', 'Top Gainers', 'Unusual Volume', 'High News Impact'];
 const CAT_FILTERS = ['All Catalysts', 'Earnings', 'Analyst', 'Breaking M&A', 'Regulatory'];
 
 export default function Dashboard() {
   const { activeTicker, selectTicker, navigateTo, searchQuery } = useVerity();
   const [wlTab, setWlTab] = useState(0);
   const [catFilter, setCatFilter] = useState(0);
+  const [exchangeStocks, setExchangeStocks] = useState([]);
+  const [loadingExchange, setLoadingExchange] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadExchange() {
+      setLoadingExchange(true);
+      try {
+        const stocks = await fetchExchangeStocks();
+        if (isMounted) {
+          // Filter out the 5-6 core watchlist stocks to show all other exchange stocks
+          const coreSymbols = new Set(WATCHLIST.map(w => w.symbol.toUpperCase()));
+          const extraStocks = stocks.filter(s => !coreSymbols.has(s.symbol.toUpperCase()));
+          setExchangeStocks(extraStocks);
+        }
+      } catch (err) {
+        console.error('Failed to load exchange stocks:', err);
+      } finally {
+        if (isMounted) setLoadingExchange(false);
+      }
+    }
+    loadExchange();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleAnalyze = (ticker) => { selectTicker(ticker); navigateTo('whatif'); };
   const handleDrillIn = (ticker) => { selectTicker(ticker); navigateTo('analysis'); };
 
   // Filtered Watchlist
   const filteredWatchlist = useMemo(() => {
-    let list = [...WATCHLIST];
+    let list;
+    if (wlTab === 1) {
+      // Show all board of exchange stocks
+      list = exchangeStocks.slice(0, 100); // paginate / show top exchange items
+    } else {
+      list = [...WATCHLIST];
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(w =>
+      const source = wlTab === 1 ? exchangeStocks : list;
+      list = source.filter(w =>
         w.symbol.toLowerCase().includes(q) ||
         w.name.toLowerCase().includes(q) ||
-        w.tags.some(t => t.toLowerCase().includes(q))
+        w.tags?.some(t => t.toLowerCase().includes(q))
       );
     }
-    if (wlTab === 1) {
+
+    if (wlTab === 2) {
       list = [...list].sort((a, b) => b.changePct - a.changePct);
-    } else if (wlTab === 2) {
-      list = list.filter(w => parseFloat(w.volume) > 50);
     } else if (wlTab === 3) {
-      list = list.filter(w => w.tags.includes('Product') || w.tags.includes('Supply') || w.tags.includes('Earnings'));
+      list = list.filter(w => parseFloat(w.volume) > 50);
+    } else if (wlTab === 4) {
+      list = list.filter(w => w.tags?.includes('Product') || w.tags?.includes('Supply') || w.tags?.includes('Earnings'));
     }
     return list;
-  }, [searchQuery, wlTab]);
+  }, [searchQuery, wlTab, exchangeStocks]);
 
   // Filtered Catalyst Feed
   const filteredFeed = useMemo(() => {
@@ -490,7 +524,14 @@ export default function Dashboard() {
 
           {/* Rows Body */}
           <div className="panel-body">
-            {filteredWatchlist.length > 0 ? (
+            {loadingExchange && wlTab === 1 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                  <RefreshCw size={14} className="spin" style={{ color: 'var(--cyan-bright)' }} />
+                  <span>Connecting to Board of Exchange (SEC EDGAR Live Directory)...</span>
+                </div>
+              </div>
+            ) : filteredWatchlist.length > 0 ? (
               filteredWatchlist.map(item => (
                 <WLRow
                   key={item.id}

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -6,6 +6,7 @@ import {
 import { Save, Zap, X } from 'lucide-react';
 import { NVDA_INTRADAY, CATALYST_NODES, WATCHLIST } from '../data/marketData';
 import { useVerity } from '../context/VerityContext';
+import { fetchExchangeStocks } from '../services/exchangeApi';
 
 /* ── Custom Catalyst Dot ──────────────────────────── */
 function CatalystDot({ cx, cy, payload, activeNode, onNodeClick }) {
@@ -31,7 +32,7 @@ function CatalystDot({ cx, cy, payload, activeNode, onNodeClick }) {
 }
 
 /* ── Chart Tooltip ────────────────────────────────── */
-function ChartTip({ active, payload, label }) {
+function ChartTip({ active, payload, label, currencySymbol = '$' }) {
   if (!active || !payload?.length) return null;
   const node = CATALYST_NODES.find(n => n.time === label);
   return (
@@ -40,9 +41,9 @@ function ChartTip({ active, payload, label }) {
       borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px',
       boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
     }}>
-      <div style={{ color: 'var(--text-muted)', marginBottom: '3px', fontFamily: 'var(--font-mono)' }}>{label} EDT</div>
+      <div style={{ color: 'var(--text-muted)', marginBottom: '3px', fontFamily: 'var(--font-mono)' }}>{label} Market Time</div>
       <div style={{ fontSize: '17px', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-        ${payload[0]?.value?.toFixed(2)}
+        {currencySymbol}{payload[0]?.value?.toFixed(2)}
       </div>
       {node && (
         <div style={{
@@ -174,14 +175,15 @@ function WhyPanel({ node, onClose, onSimulate }) {
 /* ── Metrics Strip ────────────────────────────────── */
 function MetricsStrip({ stock }) {
   const up = stock.changePct >= 0;
+  const cs = stock.currencySymbol || (stock.exchange?.includes('NSE') ? '₹' : '$');
   const metrics = [
-    { label: 'LAST PRICE', value: `$${stock.price.toFixed(2)}`, color: up ? 'var(--green-bright)' : 'var(--red-bright)', large: true },
-    { label: '24H DELTA', value: `${up ? '+' : ''}${stock.changePct.toFixed(2)}%`, color: up ? 'var(--green-bright)' : 'var(--red-bright)' },
-    { label: 'DAILY VOL', value: stock.volume },
-    { label: 'MARKET CAP', value: `$${stock.mktCap}` },
-    { label: 'FWD P/E', value: stock.pe.toFixed(1) },
+    { label: 'LAST PRICE', value: `${cs}${typeof stock.price === 'number' ? stock.price.toFixed(2) : stock.price}`, color: up ? 'var(--green-bright)' : 'var(--red-bright)', large: true },
+    { label: '24H DELTA', value: `${up ? '+' : ''}${typeof stock.changePct === 'number' ? stock.changePct.toFixed(2) : stock.changePct}%`, color: up ? 'var(--green-bright)' : 'var(--red-bright)' },
+    { label: 'DAILY VOL', value: stock.volume || '18.4M' },
+    { label: 'MARKET CAP', value: stock.mktCap?.startsWith('$') || stock.mktCap?.startsWith('₹') ? stock.mktCap : `${cs}${stock.mktCap || '120B'}` },
+    { label: 'FWD P/E', value: stock.pe ? stock.pe.toFixed(1) : '28.4' },
     { label: '30D IV', value: '44.2%', color: 'var(--amber)' },
-    { label: 'INST FLOW', value: '+$1.2B', color: 'var(--green-bright)' },
+    { label: 'INST FLOW', value: `${up ? '+' : '-'}${cs}1.2B`, color: up ? 'var(--green-bright)' : 'var(--red-bright)' },
     { label: 'DARK POOL', value: '38%', color: 'var(--purple)' },
   ];
 
@@ -225,22 +227,103 @@ const TIME_RANGES = ['1D Catalysts', '5D Wire', '1M Impact', 'YTD Macro'];
 
 export default function Analysis() {
   const { activeTicker, navigateTo } = useVerity();
+  const [exchangeStocks, setExchangeStocks] = useState([]);
   const [activeNode, setActiveNode] = useState(CATALYST_NODES[0]);
   const [timeRange, setTimeRange] = useState(0);
 
+  useEffect(() => {
+    let isMounted = true;
+    async function load() {
+      try {
+        const stocks = await fetchExchangeStocks();
+        if (isMounted) setExchangeStocks(stocks);
+      } catch (e) {
+        console.warn('Could not load exchange directory:', e);
+      }
+    }
+    load();
+    return () => { isMounted = false; };
+  }, []);
+
   const ticker = activeTicker || 'NVDA';
-  const stock = WATCHLIST.find(w => w.id === ticker) || WATCHLIST[0];
+
+  // Find stock in WATCHLIST or fetched Exchange Stocks
+  const stock = useMemo(() => {
+    const fromWl = WATCHLIST.find(w => w.id === ticker || w.symbol.toUpperCase() === ticker.toUpperCase());
+    if (fromWl) return fromWl;
+
+    const fromEx = exchangeStocks.find(s => s.id === ticker || s.symbol.toUpperCase() === ticker.toUpperCase());
+    if (fromEx) return fromEx;
+
+    // Fallback if not yet loaded
+    const isIndian = ticker.toUpperCase() === 'VBL' || ticker.toUpperCase() === 'RELIANCE' || ticker.toUpperCase() === 'TCS';
+    return {
+      id: ticker,
+      symbol: ticker,
+      name: ticker === 'VBL' ? 'Varun Beverages Limited' : ticker,
+      exchange: isIndian ? 'NSE/BSE' : 'US',
+      currencySymbol: isIndian ? '₹' : '$',
+      price: ticker === 'VBL' ? 594.30 : 185.50,
+      change: ticker === 'VBL' ? 12.50 : 2.40,
+      changePct: ticker === 'VBL' ? 2.15 : 1.35,
+      volume: '14.2M',
+      mktCap: isIndian ? '₹1.92T' : '$250B',
+      pe: 34.2,
+      tags: [isIndian ? 'NSE/BSE' : 'Exchange', 'Bullish']
+    };
+  }, [ticker, exchangeStocks]);
+
+  const currencySymbol = stock.currencySymbol || (stock.exchange?.includes('NSE') ? '₹' : '$');
+
+  // Generate realistic intraday points scaled to the stock's actual price
+  const chartPoints = useMemo(() => {
+    if (ticker === 'NVDA') return NVDA_INTRADAY;
+
+    const basePrice = stock.price || 100;
+    const isUp = (stock.changePct || 0) >= 0;
+    const spread = basePrice * (Math.abs(stock.changePct || 1.5) / 100);
+
+    return NVDA_INTRADAY.map((item, idx) => {
+      const progress = idx / (NVDA_INTRADAY.length - 1);
+      const wave = Math.sin(idx * 0.8) * (spread * 0.25);
+      const trend = isUp ? (progress * spread) : -(progress * spread);
+      const p = Number((basePrice - (isUp ? spread : -spread) + trend + wave).toFixed(2));
+      return {
+        time: item.time,
+        price: p,
+        vol: item.vol
+      };
+    });
+  }, [ticker, stock.price, stock.changePct]);
+
+  // Scaled dynamic catalyst nodes for the stock
+  const stockCatalystNodes = useMemo(() => {
+    const basePrice = stock.price || 100;
+    return CATALYST_NODES.map((n) => {
+      const nodePt = chartPoints.find(p => p.time === n.time);
+      const p = nodePt ? nodePt.price : basePrice;
+      return {
+        ...n,
+        price: p,
+        headline: n.headline.replace('TSMC', stock.symbol).replace('NVDA', stock.symbol),
+        narrative: {
+          ...n.narrative,
+          summary: n.narrative.summary.replace('NVIDIA', stock.name).replace('NVDA', stock.symbol)
+        }
+      };
+    });
+  }, [stock, chartPoints]);
 
   const handleNodeClick = useCallback((node) => {
     setActiveNode(prev => prev?.id === node.id ? null : node);
   }, []);
 
   const handleSimulate = () => {
-    navigateTo('whatif');
+    navigateTo('whatif', stock.symbol);
   };
 
-  const chartMin = Math.min(...NVDA_INTRADAY.map(d => d.price)) - 3;
-  const chartMax = Math.max(...NVDA_INTRADAY.map(d => d.price)) + 3;
+  const chartMin = Math.min(...chartPoints.map(d => d.price)) * 0.985;
+  const chartMax = Math.max(...chartPoints.map(d => d.price)) * 1.015;
 
   const renderDot = useCallback((props) => (
     <CatalystDot {...props} activeNode={activeNode?.id} onNodeClick={handleNodeClick} />
@@ -270,14 +353,16 @@ export default function Analysis() {
                 {stock.symbol}
               </h1>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{stock.name}</span>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>NASDAQ · US EQUITIES</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {stock.exchange || 'BOARD OF EXCHANGE'} · {currencySymbol === '₹' ? 'DOMESTIC EQUITIES' : 'US EQUITIES'}
+              </span>
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
           <span style={{ fontSize: '18px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
-            ${stock.price.toFixed(2)}
+            {currencySymbol}{typeof stock.price === 'number' ? stock.price.toFixed(2) : stock.price}
           </span>
           <span style={{
             fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)',
@@ -285,7 +370,7 @@ export default function Analysis() {
             background: stock.changePct >= 0 ? 'var(--green-bg)' : 'var(--red-bg)',
             padding: '2px 7px', borderRadius: '4px',
           }}>
-            {stock.changePct >= 0 ? '▲ +' : '▼ '}{stock.changePct.toFixed(2)}%
+            {stock.changePct >= 0 ? '▲ +' : '▼ '}{typeof stock.changePct === 'number' ? stock.changePct.toFixed(2) : stock.changePct}%
           </span>
         </div>
 
@@ -356,7 +441,7 @@ export default function Analysis() {
               <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                 Nodes:
               </span>
-              {CATALYST_NODES.map(n => (
+              {stockCatalystNodes.map(n => (
                 <span
                   key={n.id}
                   onClick={() => handleNodeClick(n)}
@@ -380,7 +465,7 @@ export default function Analysis() {
             </div>
 
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={NVDA_INTRADAY} margin={{ top: 40, right: 20, left: 10, bottom: 6 }}>
+              <AreaChart data={chartPoints} margin={{ top: 40, right: 20, left: 10, bottom: 6 }}>
                 <defs>
                   <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--cyan)" stopOpacity={0.2} />
@@ -396,10 +481,10 @@ export default function Analysis() {
                 <YAxis
                   domain={[chartMin, chartMax]}
                   tick={{ fontSize: 9.5, fill: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}
-                  axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} width={52}
+                  axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${v.toFixed(0)}`} width={58}
                 />
-                <Tooltip content={<ChartTip />} />
-                {CATALYST_NODES.map(n => (
+                <Tooltip content={<ChartTip currencySymbol={currencySymbol} />} />
+                {stockCatalystNodes.map(n => (
                   <ReferenceLine
                     key={n.id}
                     x={n.time}
@@ -455,7 +540,7 @@ export default function Analysis() {
           background: 'var(--bg-card-alt)',
           overflow: 'hidden',
         }}>
-          {CATALYST_NODES.map((node, i) => {
+          {stockCatalystNodes.map((node, i) => {
             const up = node.direction === 'bullish';
             const isActive = activeNode?.id === node.id;
             return (
@@ -464,7 +549,7 @@ export default function Analysis() {
                 onClick={() => handleNodeClick(node)}
                 style={{
                   padding: '9px 12px',
-                  borderRight: i < CATALYST_NODES.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  borderRight: i < stockCatalystNodes.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                   borderTop: isActive ? '2px solid var(--cyan)' : '2px solid transparent',
                   background: isActive ? 'rgba(59, 130, 246, 0.09)' : 'transparent',
                   cursor: 'pointer',
@@ -498,7 +583,7 @@ export default function Analysis() {
                   {node.headline}
                 </div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {node.timeLabel} · ${node.price.toFixed(2)}
+                  {node.timeLabel} · {currencySymbol}{node.price.toFixed(2)}
                 </div>
               </div>
             );

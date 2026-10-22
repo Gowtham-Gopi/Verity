@@ -49,10 +49,10 @@ export default function AuthModal({ forceOpen = false }) {
         setSuccessMsg('Account created successfully! Redirecting...');
       }
 
-      // Automatically open dashboard once signed in
+      // Automatically open search page once signed in
       setTimeout(() => {
         closeAuthModal();
-        navigateTo('dashboard');
+        navigateTo('search');
       }, 400);
     } catch (err) {
       setError(err.message || 'Invalid email or password.');

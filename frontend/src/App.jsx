@@ -10,6 +10,7 @@ import Analysis from './pages/Analysis';
 import WhatIf from './pages/WhatIf';
 import Macro from './pages/Macro';
 import LandingPage from './pages/LandingPage';
+import SearchPage from './pages/SearchPage';
 
 function AppShell() {
   const { activeTab } = useVerity();
@@ -27,11 +28,12 @@ function AppShell() {
 
   const renderPage = () => {
     switch (activeTab) {
+      case 'search':    return <SearchPage />;
       case 'dashboard': return <Dashboard />;
       case 'analysis':  return <Analysis />;
       case 'whatif':    return <WhatIf />;
       case 'macro':     return <Macro />;
-      default:          return <Dashboard />;
+      default:          return <SearchPage />;
     }
   };
 

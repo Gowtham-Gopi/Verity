@@ -774,7 +774,7 @@ export default function LandingPage() {
       openAuthModal('login', 'Please sign in to access the Verity dashboard.');
       return;
     }
-    navigateTo('dashboard', ticker);
+    navigateTo('search', ticker);
   };
 
   return (
