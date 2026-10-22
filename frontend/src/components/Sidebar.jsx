@@ -1,11 +1,20 @@
 import {
   LayoutDashboard, LineChart, Cpu, Globe,
-  ChevronLeft, ChevronRight, Radio
+  ChevronLeft, ChevronRight, Radio, Zap, User, LogIn
 } from 'lucide-react';
 import { useVerity } from '../context/VerityContext';
+import { useAuth } from '../context/AuthContext';
 import { WATCHLIST } from '../data/marketData';
 
 const NAV_ITEMS = [
+  {
+    id: 'landing',
+    label: 'Overview & Portal',
+    shortLabel: 'Portal',
+    icon: Zap,
+    badge: 'PORTAL',
+    shortcut: '0',
+  },
   {
     id: 'dashboard',
     label: 'Market & Watchlist',
@@ -52,6 +61,7 @@ export default function Sidebar() {
     sidebarCollapsed, toggleSidebar,
     activeTicker, navigateTo
   } = useVerity();
+  const { user, isAuthenticated, openAuthModal } = useAuth();
 
   const currentStock = WATCHLIST.find(w => w.id === activeTicker) || WATCHLIST[0];
 
@@ -333,6 +343,60 @@ export default function Sidebar() {
                 <span key={i} style={{ width: 4, height: 4, borderRadius: '50%', background: f.color }} />
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── User Session Status ── */}
+      <div style={{
+        padding: sidebarCollapsed ? '8px 4px' : '10px 14px',
+        borderTop: '1px solid var(--border-faint)',
+        background: 'rgba(255, 255, 255, 0.02)'
+      }}>
+        {!sidebarCollapsed ? (
+          isAuthenticated ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%',
+                background: '#2563eb',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '11px', fontWeight: 700, color: '#fff'
+              }}>
+                {user?.name ? user.name[0].toUpperCase() : 'U'}
+              </div>
+              <div style={{ overflow: 'hidden', lineHeight: 1.2 }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user?.name}
+                </div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user?.email}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => openAuthModal('login', 'Please sign in to access your dashboard.')}
+              style={{
+                width: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                background: '#2563eb',
+                border: 'none',
+                borderRadius: '4px', padding: '7px 10px',
+                color: '#ffffff', fontSize: '12px', fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              <LogIn size={13} />
+              <span>Sign In</span>
+            </button>
+          )
+        ) : (
+          <div
+            onClick={() => !isAuthenticated && openAuthModal('login', 'Please sign in to access your dashboard.')}
+            style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
+            title={isAuthenticated ? user?.name : 'Click to Sign In'}
+          >
+            <User size={15} color={isAuthenticated ? '#60a5fa' : 'var(--text-muted)'} />
           </div>
         )}
       </div>

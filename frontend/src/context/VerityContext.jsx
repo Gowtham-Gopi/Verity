@@ -4,7 +4,7 @@ const VerityContext = createContext(null);
 
 export function VerityProvider({ children }) {
   const [activeTicker, setActiveTicker] = useState('NVDA');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('landing');
   const [searchQuery, setSearchQuery] = useState('');
   const [systemSynced, _setSystemSynced] = useState(true);
   const [lastSync, _setLastSync] = useState(() => new Date());

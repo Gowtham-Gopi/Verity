@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Bell, Wifi, Zap } from 'lucide-react';
 import { useVerity } from '../context/VerityContext';
+import { useAuth } from '../context/AuthContext';
 
 const TICKERS = [
   { s: 'SPY',   p: '512.40', c: '+0.82%', up: true  },
@@ -42,7 +43,9 @@ function TickerItem({ item }) {
 }
 
 export default function TopBar() {
-  const { searchQuery, setSearchQuery } = useVerity();
+  const { searchQuery, setSearchQuery, navigateTo } = useVerity();
+  const { user, token, isAuthenticated, logout, openAuthModal } = useAuth();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [_time, setTime] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -54,7 +57,11 @@ export default function TopBar() {
   return (
     <header className="topbar">
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+      <div 
+        onClick={() => navigateTo('landing')}
+        title="Return to Verity Landing Page"
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer' }}
+      >
         <div style={{
           width: 30, height: 30,
           background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
@@ -118,6 +125,22 @@ export default function TopBar() {
 
       {/* Right side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0, marginLeft: 'auto' }}>
+        <button
+          onClick={() => navigateTo('landing')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '3px', padding: '5px 11px',
+            color: 'var(--cyan-bright)', fontSize: '11px', fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'var(--font-mono)'
+          }}
+          title="Return to Landing Page & System Overview"
+        >
+          <Zap size={13} />
+          <span>PORTAL</span>
+        </button>
+
         {/* Net Liq */}
         <div style={{ textAlign: 'right', lineHeight: 1.25 }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Net Liq</div>
@@ -145,16 +168,101 @@ export default function TopBar() {
           <Bell size={16} />
         </button>
 
-        {/* Avatar */}
-        <div style={{
-          width: 32, height: 32, borderRadius: '3px',
-          background: 'var(--bg-card-alt)',
-          border: '1px solid var(--border-strong)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer',
-        }}>
-          GK
-        </div>
+        {/* User Auth Section */}
+        {isAuthenticated ? (
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '6px', padding: '5px 10px',
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%',
+                background: '#2563eb',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '11px', fontWeight: 700, color: '#ffffff'
+              }}>
+                {user?.name ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f5f9' }}>
+                {user?.name || 'Account'}
+              </span>
+            </div>
+
+            {/* Dropdown Menu */}
+            {userMenuOpen && (
+              <div style={{
+                position: 'absolute', right: 0, top: '100%', marginTop: 8,
+                width: 220, background: '#161922',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '6px', boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+                padding: '12px', zIndex: 1000,
+                display: 'flex', flexDirection: 'column', gap: '8px'
+              }}>
+                <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>{user?.name}</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', wordBreak: 'break-all' }}>{user?.email}</div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    logout();
+                    setUserMenuOpen(false);
+                    navigateTo('landing');
+                  }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#f87171',
+                    fontSize: '12.5px', fontWeight: 600,
+                    padding: '8px 12px', borderRadius: '4px', cursor: 'pointer',
+                    textAlign: 'center', transition: 'all 0.15s ease'
+                  }}
+                >
+                  Log Out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => openAuthModal('login', 'Please sign in to access the dashboard.')}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#f1f5f9',
+                padding: '6px 14px',
+                borderRadius: '4px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => openAuthModal('signup', 'Create an account to access the dashboard.')}
+              style={{
+                background: '#2563eb',
+                border: 'none',
+                color: '#ffffff',
+                padding: '6px 14px',
+                borderRadius: '4px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

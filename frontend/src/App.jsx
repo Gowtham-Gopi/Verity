@@ -1,5 +1,7 @@
 import './App.css';
 import { VerityProvider, useVerity } from './context/VerityContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import AuthModal from './components/AuthModal';
 import TopBar from './components/TopBar';
 import Sidebar from './components/Sidebar';
 import BottomBar from './components/BottomBar';
@@ -7,9 +9,21 @@ import Dashboard from './pages/Dashboard';
 import Analysis from './pages/Analysis';
 import WhatIf from './pages/WhatIf';
 import Macro from './pages/Macro';
+import LandingPage from './pages/LandingPage';
 
 function AppShell() {
   const { activeTab } = useVerity();
+  const { isAuthenticated } = useAuth();
+
+  // If on landing page or not authenticated, dashboard is not rendered
+  if (activeTab === 'landing' || !isAuthenticated) {
+    return (
+      <>
+        <LandingPage />
+        <AuthModal forceOpen={!isAuthenticated && activeTab !== 'landing'} />
+      </>
+    );
+  }
 
   const renderPage = () => {
     switch (activeTab) {
@@ -31,14 +45,17 @@ function AppShell() {
         </main>
       </div>
       <BottomBar />
+      <AuthModal />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <VerityProvider>
-      <AppShell />
-    </VerityProvider>
+    <AuthProvider>
+      <VerityProvider>
+        <AppShell />
+      </VerityProvider>
+    </AuthProvider>
   );
 }
